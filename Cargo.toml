@@ -6,9 +6,8 @@ authors = ["Aleks Pickle <aleks.work2222@gmail.com>"]
 
 [dependencies]
 anyhow = "1.0"
+csv = "1.1.6"
 deadpool-lapin = "0.10"
 lapin = "2.1.1"
+rand = "0.8.5"
 tokio = { version = "1.21.2", features = ["full"] }
-tracing = "*"
-futures-lite = "*"
-
