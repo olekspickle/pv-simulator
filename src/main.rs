@@ -9,17 +9,18 @@
 //!
 //! The end result of a simulation is a CSV file.
 //!
-mod defs;
-mod error;
+mod pool;
 
-use defs::{Meter, Simulation};
+use pool::{Meter, Simulation};
+
+const SECS: u32 = 86400;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let meter = Meter::new(0, 9000);
     let sim = Simulation::new(meter);
 
-    sim.start(0..24).await?;
+    sim.start(0..SECS).await?;
 
     Ok(())
 }
