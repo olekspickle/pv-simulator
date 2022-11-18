@@ -7,13 +7,20 @@ use anyhow::Result;
 use futures_lite::StreamExt;
 use lapin::{options::*, types::FieldTable, BasicProperties};
 use log::{debug, info};
-use std::{fs, io::Write, time::Duration};
+use std::{fs, io::Write, time, time::Duration};
 
 /// Struct that will manage the simulation loop
 #[derive(Clone, Debug)]
-pub struct Simulation;
+pub struct Simulation {
+    pool: Pool,
+}
 
 impl Simulation {
+    pub fn new() -> Result<Self> {
+        let pool = Pool::new()?;
+        Ok(Self { pool })
+    }
+
     /// Approximate load data function for a 24h cycle
     ///
     /// Returns: power value in kW
@@ -30,24 +37,20 @@ impl Simulation {
     /// In order to run simulation in order of a few minutes
     /// Meter values will be produced approximately 360 times per second (60Hz)
     /// This way the whole 24h cycle will run in 240s(4m) timespan
-    pub async fn start(meter: Meter, time_range: std::ops::Range<u32>) -> Result<()> {
-        let pool = Pool::new()?;
-
-        let queue = pool.declare_queue().await?;
+    pub async fn start(&self, meter: Meter, time_range: std::ops::Range<u32>) -> Result<()> {
+        let queue = self.pool.declare_queue().await?;
         info!("Declared the '{:?}' queue", queue);
 
         // Lifetimes in threads: we need it just for creating a channel in a thread scope
-        let pool_1 = pool.clone();
+        let pool_1 = self.pool.clone();
         // 1. Launch meter generation process in one task
-        info!("Launching generation task...");
+        info!("Launching meter values generation task...");
         tokio::spawn(async move {
-            // let mut interval = tokio::time::interval(Duration::from_micros(250));
-            let mut interval = tokio::time::interval(Duration::from_secs(1));
             for n in time_range {
                 let meter_value: MeterRecord = meter.consume().into();
                 let payload = meter_value.to_string().as_bytes().to_vec();
                 debug!(
-                    "{n}-Message payload:{:?}",
+                    "{n}-Meter payload:{:?}",
                     String::from_utf8(payload.clone()).unwrap()
                 );
 
@@ -62,8 +65,7 @@ impl Simulation {
                     )
                     .await?;
 
-                debug!("{n}-Message published: {}", meter_value.value());
-                interval.tick().await;
+                Self::tick().await;
             }
 
             Ok::<(), anyhow::Error>(())
@@ -71,7 +73,8 @@ impl Simulation {
 
         info!("Launching PV subscriber...");
         // 2. Launch pv receiving in another task
-        let channel = pool
+        let channel = self
+            .pool
             .channel()
             .await
             .expect("failed to create a sub connection");
@@ -91,23 +94,32 @@ impl Simulation {
             let delivery = delivery.expect("error in consumer");
             let record: MeterRecord = delivery.data.clone().into();
 
-            let dt = record.datetime().to_string();
-            let h = record.hours();
             let meter_value = record.value();
-            let pv_value = Self::generated(h);
-            let resulting = pv_value - meter_value / 1000.0;
+            let pv_value = Self::generated(record.hours());
+            let resulting = meter_value / 1000.0 - pv_value;
+            debug!("{meter_value}/{} - {pv_value}={resulting}", 1000.0);
 
+            let dt = record.datetime().to_string();
             let row = format!("{dt},{meter_value},{pv_value},{resulting}\n");
             Self::write_row(&mut row.as_bytes().to_vec())?;
-            debug!("Row appended to the file: {}", &row);
 
-            delivery.ack(BasicAckOptions::default()).await.expect("ack");
+            delivery
+                .ack(BasicAckOptions::default())
+                .await
+                .expect("ACK failed");
+
+            Self::tick().await;
+            let n = self.check_message_count().await?;
+            debug!("N:{n}");
+            if n == 0 {
+                break;
+            }
         }
 
         Ok(())
     }
 
-    /// Write final buffer in a file
+    /// Append buffer to a file
     fn write_row(buf: &mut Vec<u8>) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .write(true)
@@ -116,14 +128,26 @@ impl Simulation {
             .open("results.csv")
             .unwrap();
         file.write_all(buf).expect("Could not write to a file");
-        // let mut rdr = csv::ReaderBuilder::new().from_reader(&**buf);
-        // let mut wtr = csv::WriterBuilder::new().from_path("results.csv")?;
-        // let mut record = csv::ByteRecord::new();
-        // while rdr.read_byte_record(&mut record)? {
-        //     wtr.write_byte_record(&record)?;
-        // }
-        // wtr.flush()?;
 
         Ok(())
+    }
+
+    async fn check_message_count(&self) -> Result<u32> {
+        let ch = self.pool.channel().await?;
+        let queue = ch
+            .queue_declare(
+                METER_QUEUE,
+                QueueDeclareOptions::default(),
+                FieldTable::default(),
+            )
+            .await?;
+
+        Ok(queue.message_count())
+    }
+
+    /// Wait some time
+    async fn tick() {
+        let mut interval = tokio::time::interval(Duration::from_micros(250));
+        interval.tick().await;
     }
 }
