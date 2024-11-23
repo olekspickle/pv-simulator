@@ -30,7 +30,7 @@ impl MeterRecord {
     pub fn datetime(&self) -> DateTime<Local> {
         // chrono parsing from it's own types is amazingly flawed
         // But help is on it's way: https://github.com/chronotope/chrono/pull/807
-        let time = self.time.clone().replace(" +", "+").replace(" ", "T");
+        let time = self.time.clone().replace(" +", "+").replace(' ', "T");
 
         // 2022-11-17T16:52:34.565738866+02:00
         let dt = DateTime::parse_from_str(&time, "%+").expect("DateTime from string");

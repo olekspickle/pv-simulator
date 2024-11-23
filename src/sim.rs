@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::Result;
 use futures_lite::StreamExt;
-use lapin::{options::*, types::FieldTable, BasicProperties};
+use lapin::{message::BasicGetMessage, options::*, types::FieldTable, BasicProperties};
 use log::{debug, info};
 use std::{fs, io::Write, time::Duration};
 
@@ -84,6 +84,9 @@ impl Simulation {
         info!("Launching PV subscriber...");
         let mut sub = self.consumer().await?;
         loop {
+            // Also possible to use basic_get for this
+            // let delivery = self.get_message().await?;
+
             // Without this workaround the process hangs at the end on the amqp async stream loop.
             // This is what I came up with to break it gracefully, but async is still hard :(
             // So it looks terrible but justifiable in this kind of project.
@@ -136,7 +139,7 @@ impl Simulation {
     }
 
     /// Append buffer to a file
-    fn write_row(buf: &mut Vec<u8>) -> Result<()> {
+    fn write_row(buf: &mut [u8]) -> Result<()> {
         let mut file = fs::OpenOptions::new()
             .write(true)
             .append(true)
@@ -162,6 +165,21 @@ impl Simulation {
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
+            .await
+            .expect("failed to create a subscription");
+
+        Ok(sub)
+    }
+
+    /// Oneshot get message
+    async fn _get_message(&self) -> Result<Option<BasicGetMessage>> {
+        let sub_channel = self
+            .pool
+            .channel()
+            .await
+            .expect("failed to create a sub connection");
+        let sub = sub_channel
+            .basic_get(METER_QUEUE, BasicGetOptions::default())
             .await
             .expect("failed to create a subscription");
 

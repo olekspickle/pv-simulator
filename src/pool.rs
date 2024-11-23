@@ -22,7 +22,7 @@ impl Pool {
         };
         pool_cfg
             .create_pool(Some(Runtime::Tokio1))
-            .map(|inner| Self(inner))
+            .map(Self)
             .map_err(|e| anyhow!("Failed to create pool:{}", e))
     }
 
