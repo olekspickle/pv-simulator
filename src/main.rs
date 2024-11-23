@@ -1,3 +1,5 @@
+//! ### Overview
+//! 
 //! The idea is to simulate **PV generator** values interaction of Solar panels
 //! and building consumption measured by a Meter.
 //!
@@ -8,6 +10,18 @@
 //! The simulation should record each second with the meter values 0-9000 Watts.
 //!
 //! The end result of a simulation is a CSV file.
+//! 
+//! ### How to run
+//!     1. Run rabbitmq:
+//!     ```bash
+//!         docker compose up
+//!     ```
+//! 
+//!     2. Run the app:
+//!     ```bash
+//!         RUST_LOG=info cargo run
+//!     ```
+//! 
 //!
 pub(crate) mod meter;
 pub(crate) mod pool;
