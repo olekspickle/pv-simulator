@@ -1,12 +1,16 @@
 version: "3"
 services:
- rabbitmq:
+  db:
+    container_name: rabbitmq-instance
     image: "rabbitmq:3-management"
+    restart: always
+    env_file:
+      - ./secret.env
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - 'rabbitmq_data:/data'
+      - 'rabbitmq_db:/data'
 
 volumes:
-  rabbitmq_data:
+  rabbitmq_db:
