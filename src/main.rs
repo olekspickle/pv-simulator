@@ -9,18 +9,20 @@
 //!
 //! The end result of a simulation is a CSV file.
 //!
-mod pool;
+pub(crate) mod meter;
+pub(crate) mod pool;
+pub(crate) mod sim;
 
-use pool::{Meter, Simulation};
+use meter::Meter;
+use sim::Simulation;
 
+const AMQP_ADDR: &str = "amqp://user:pass@127.0.0.1:5672/%2f";
+const METER_QUEUE: &str = "meter_queue";
 const SECS: u32 = 86400;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let meter = Meter::new(0, 9000);
-    let sim = Simulation::new(meter);
-
-    sim.start(0..SECS).await?;
+    Simulation::start(Meter::new(0, 9000), 0..SECS).await?;
 
     Ok(())
 }

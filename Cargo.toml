@@ -6,9 +6,12 @@ authors = ["Oleks Pickle <22867443+olekspickle@users.noreply.github.com>"]
 
 [dependencies]
 anyhow = "1.0"
+borsh = "0.9.3"
+borsh-derive = "0.9.3"
 chrono = "0.4.22"
 csv = "1.1.6"
 deadpool-lapin = "0.10"
+futures-lite = "1.12"
 lapin = "2.1.1"
 rand = "0.8.5"
 tokio = { version = "1.21.2", features = ["full"] }
