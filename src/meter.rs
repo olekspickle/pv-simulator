@@ -4,6 +4,9 @@ use rand::Rng;
 /// Meter payload message with time and amplitude
 #[derive(PartialEq, Debug)]
 pub(crate) struct MeterRecord {
+    /// Second of simulation
+    /// Used to construct timestamp of a consume power record
+    id: String,
     /// Timestamp of a consume power record
     time: String,
     /// Value in Watts
@@ -11,6 +14,18 @@ pub(crate) struct MeterRecord {
 }
 
 impl MeterRecord {
+    /// Constructs new record.
+    ///
+    /// Uses provided simulation seconds to construct datetime from it.
+    pub fn new(secs: u32, value: f32) -> Self {
+        let time = crate::utils::secs_to_date(secs);
+        Self {
+            id: secs.to_string(),
+            value: value.to_string(),
+            time: time.to_string(),
+        }
+    }
+
     /// Returns parsed datetime.
     pub fn datetime(&self) -> DateTime<Local> {
         // chrono parsing from it's own types is amazingly flawed
@@ -36,9 +51,10 @@ impl MeterRecord {
 impl From<String> for MeterRecord {
     fn from(s: String) -> Self {
         let mut s = s.split('#');
+        let id = s.next().expect("No sec").to_owned();
         let time = s.next().expect("No time").to_owned();
         let value = s.next().expect("No value").to_owned();
-        Self { time, value }
+        Self { id, time, value }
     }
 }
 
@@ -49,19 +65,9 @@ impl From<Vec<u8>> for MeterRecord {
     }
 }
 
-impl From<f32> for MeterRecord {
-    fn from(v: f32) -> Self {
-        let time: DateTime<Local> = chrono::Utc::now().into();
-        Self {
-            time: time.to_string(),
-            value: v.to_string(),
-        }
-    }
-}
-
 impl ToString for MeterRecord {
     fn to_string(&self) -> String {
-        format!("{}#{}", self.time, self.value)
+        format!("{}#{}#{}", self.id, self.time, self.value)
     }
 }
 
@@ -86,33 +92,24 @@ impl Meter {
 
 #[cfg(test)]
 mod tests {
-    use crate::meter::MeterRecord;
-    use chrono::DateTime;
+    use crate::{meter::MeterRecord, utils};
+    use expect_test::expect;
 
     #[test]
     fn parse_meter_datetime() {
-        const DT: &str = "2022-11-17T16:52:34.565738866+02:00";
-
-        let mv = MeterRecord {
-            time: DT.to_owned(),
-            value: "100".to_owned(),
-        };
-        let expected = DateTime::parse_from_str(DT, "%+").unwrap();
-        let dt = mv.datetime();
-
-        assert_eq!(dt.to_string(), expected.to_string());
+        let mv = MeterRecord::new(3333, 100.0);
+        expect!["3333#2022-11-21 00:55:00 +02:00#100"].assert_eq(&mv.to_string());
+        let mv = MeterRecord::new(50000, 100.0);
+        expect!["50000#2022-11-21 13:53:00 +02:00#100"].assert_eq(&mv.to_string());
     }
 
     #[test]
     fn meter_hours() {
-        const DT: &str = "2022-11-17T16:52:34.565738866+02:00";
-        const EXPECTED: f32 = 16.866667;
-
-        let mv = MeterRecord {
-            time: DT.to_owned(),
-            value: "100".to_owned(),
-        };
-
-        assert_eq!(mv.hours(), EXPECTED);
+        let mv = MeterRecord::new(3333, 100.0);
+        let normal = utils::_f32_to_hour_str(mv.hours());
+        expect!["0:55"].assert_eq(&normal);
+        let mv = MeterRecord::new(50000, 100.0);
+        let normal = utils::_f32_to_hour_str(mv.hours());
+        expect!["13:52"].assert_eq(&normal);
     }
 }
