@@ -1,6 +1,7 @@
 use crate::{
     meter::{Meter, MeterValue},
     pool::Pool,
+    METER_QUEUE,
 };
 use chrono::{DateTime, FixedOffset, Local};
 
@@ -34,11 +35,11 @@ impl Simulation {
         let pool = Pool::new()?;
 
         let queue = pool.declare_queue().await?;
-        println!("Declared the '{:?}' queue", queue);
+        log::info!("Declared the '{:?}' queue", queue);
 
-        // Lifetimes: we need it just for creating a channel in a thread scope
+        // Lifetimes in threads: we need it just for creating a channel in a thread scope
         let pool_1 = pool.clone();
-        // 1. Launch meter generation in one task
+        // 1. Launch meter generation process in one task
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_micros(250));
             for _ in time_range {
@@ -49,14 +50,14 @@ impl Simulation {
                 let p = channel
                     .basic_publish(
                         "", // exchange
-                        crate::METER_QUEUE,
+                        METER_QUEUE,
                         BasicPublishOptions::default(),
                         &payload,
                         BasicProperties::default(),
                     )
                     .await?;
 
-                println!("Meter record published to the queue:{:?}", p);
+                log::info!("Meter record published to the queue: {:?}", p);
                 interval.tick().await;
             }
 
@@ -70,8 +71,8 @@ impl Simulation {
             .expect("failed to create a sub connection");
         let mut sub = channel
             .basic_consume(
-                "",
-                crate::METER_QUEUE,
+                METER_QUEUE,
+                "test_consume",
                 BasicConsumeOptions::default(),
                 FieldTable::default(),
             )
@@ -83,7 +84,7 @@ impl Simulation {
             let delivery = delivery.expect("error in consumer");
             let record = MeterValue::try_from_slice(&delivery.data).unwrap();
             let dt: DateTime<_> = record.datetime();
-            println!("time:{}", dt);
+            log::info!("time:{}", dt);
             buf.append(&mut dt.to_string().as_bytes().to_vec());
             // let today = time
             // let h = (n / SECS) as f32;

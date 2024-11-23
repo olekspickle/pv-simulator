@@ -22,6 +22,7 @@ const SECS: u32 = 86400;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    env_logger::init();
     Simulation::start(Meter::new(0, 9000), 0..SECS).await?;
 
     Ok(())

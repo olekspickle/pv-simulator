@@ -1,7 +1,6 @@
-
+use borsh::{BorshDeserialize, BorshSerialize};
+use chrono::{DateTime, FixedOffset, Local};
 use rand::Rng;
-use chrono::{DateTime, Local, FixedOffset};
-use borsh::{BorshSerialize, BorshDeserialize};
 
 /// Meter payload message with time and amplitude
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug)]
@@ -14,7 +13,8 @@ pub(crate) struct MeterValue {
 
 impl MeterValue {
     pub fn datetime(&self) -> DateTime<FixedOffset> {
-        DateTime::parse_from_rfc2822(&self.value).unwrap()
+        log::debug!("trying to parse datetime: {}", self.value);
+        DateTime::parse_from_rfc2822(&self.value).expect("Tried to parse Datetime from string")
     }
 }
 
@@ -23,7 +23,7 @@ impl From<f32> for MeterValue {
         let time = chrono::Local::now().to_string();
         Self {
             time,
-            value: v.to_string()
+            value: v.to_string(),
         }
     }
 }
