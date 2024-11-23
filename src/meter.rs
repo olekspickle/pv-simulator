@@ -1,5 +1,4 @@
 use chrono::{DateTime, Local, Timelike};
-use log::debug;
 use rand::Rng;
 
 /// Meter payload message with time and amplitude
