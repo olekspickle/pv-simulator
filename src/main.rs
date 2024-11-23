@@ -13,7 +13,8 @@
 //!
 //! # How to run
 //!
-//! Run `start.sh` or manually:
+//! Run `start.sh` to start RabbitMQ container and run prebuilt release binary or
+//! manually run commands:
 //!
 //! 1. Run rabbitmq:
 //!     ```bash
